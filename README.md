@@ -203,6 +203,7 @@ These variables must also be provided at runtime
 | --- | --- | --- | --- |
 | CALCOM_LICENSE_KEY | Enterprise License Key | optional |  |
 | NEXT_PUBLIC_WEBAPP_URL | Base URL of the site.  NOTE: if this value differs from the value used at build-time, there will be a slight delay during container start (to update the statically built files). | optional | `http://localhost:3000` |
+| NEXT_PUBLIC_API_V2_URL | Base URL for the API service. Like the webapp URL, this value can be replaced at runtime if it differs from the build-time value. | optional | `http://localhost:5555/api/v2` |
 | NEXTAUTH_URL | Location of the auth server. By default, this is the Cal.com docker instance itself. | optional | `{NEXT_PUBLIC_WEBAPP_URL}/api/auth` |
 | NEXTAUTH_SECRET | must match build variable | required | `secret` |
 | CALENDSO_ENCRYPTION_KEY | must match build variable | required | `secret` |
@@ -218,6 +219,7 @@ Updating these variables is not required for evaluation, but is required for run
 | Variable | Description | Required | Default |
 | --- | --- | --- | --- |
 | NEXT_PUBLIC_WEBAPP_URL | Base URL injected into static files | optional | `http://localhost:3000` |
+| NEXT_PUBLIC_API_V2_URL | API endpoint injected into static files | optional | `http://localhost:5555/api/v2` |
 | NEXT_PUBLIC_LICENSE_CONSENT | license consent - true/false |  |  |
 | NEXT_PUBLIC_WEBSITE_TERMS_URL | custom URL for terms and conditions website | optional | `https://cal.com/terms` |
 | NEXT_PUBLIC_WEBSITE_PRIVACY_POLICY_URL | custom URL for privacy policy website | optional | `https://cal.com/privacy` |
