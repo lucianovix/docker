@@ -3,7 +3,8 @@ services:
     name: cal-web
     plan: standard
     repo: https://github.com/calcom/docker.git
-    dockerfilePath: ./Dockerfile.render
+    # Build from the main Dockerfile so environment variables are baked in
+    dockerfilePath: ./Dockerfile
     env: docker
     envVars:
 

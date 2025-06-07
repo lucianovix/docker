@@ -43,6 +43,8 @@ For Production, for the time being, please checkout the repository and build/pus
 
 Make sure you have `docker` & `docker compose` installed on the server / system. Both are installed by most docker utilities, including Docker Desktop and Rancher Desktop.
 
+If running `docker compose` results in `docker: command not found`, install Docker and ensure the `docker` binary is available in your `PATH`. Installation guides are provided at [docs.docker.com/get-docker](https://docs.docker.com/get-docker/).
+
 Note: `docker compose` without the hyphen is now the primary method of using docker-compose, per the Docker documentation.
 
 ## (Most users) Running Cal.com with Docker Compose
@@ -234,7 +236,8 @@ Updating these variables is not required for evaluation, but is required for run
 When deploying on Render, you must configure the runtime environment
 variables so the container uses your own domain names. Update
 `render.yaml` (or the Render dashboard) with values that match your
-deployment. For example:
+deployment. Be sure the blueprint builds from `Dockerfile` so these
+values are embedded during the build. For example:
 
 ```
 NEXT_PUBLIC_WEBAPP_URL=https://<your-web-service>.onrender.com
