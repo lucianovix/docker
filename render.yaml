@@ -21,6 +21,15 @@ services:
       - key: CRON_API_KEY
         value: 0cc0e6c35519bba620c9360cfe3e68d0
 
+      - key: NEXT_PUBLIC_WEBAPP_URL
+        value: https://cal-web-cyvp.onrender.com
+
+      - key: NEXTAUTH_URL
+        value: https://cal-web-cyvp.onrender.com/api/auth
+
+      - key: NEXT_PUBLIC_API_V2_URL
+        value: https://cal-api-k6i4.onrender.com/api/v2
+
 databases:
   - name: cal-postgres
     plan: basic-1gb

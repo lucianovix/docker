@@ -227,6 +227,21 @@ Updating these variables is not required for evaluation, but is required for run
 | NEXTAUTH_SECRET | Cookie encryption key | required | `secret` |
 | CALENDSO_ENCRYPTION_KEY | Authentication encryption key | required | `secret` |
 
+### Deploying on Render
+
+When deploying on Render, set the runtime environment variables so the
+application uses your actual domain. Add the following keys in
+`render.yaml` or through the Render dashboard:
+
+```
+NEXT_PUBLIC_WEBAPP_URL=https://cal-web-cyvp.onrender.com
+NEXTAUTH_URL=https://cal-web-cyvp.onrender.com/api/auth
+NEXT_PUBLIC_API_V2_URL=https://cal-api-k6i4.onrender.com/api/v2
+```
+
+You must also set `NEXT_PUBLIC_LICENSE_CONSENT=agree` to accept the
+license agreement before the container can start.
+
 ## Git Submodules
 
 This repository uses a git submodule.

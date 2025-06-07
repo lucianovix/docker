@@ -82,6 +82,6 @@ ENV NODE_ENV=production
 EXPOSE 3000
 
 HEALTHCHECK --interval=30s --timeout=30s --retries=5 \
-    CMD wget --spider https://cal-web-cyvp.onrender.com || exit 1
+    CMD wget --spider $NEXT_PUBLIC_WEBAPP_URL || exit 1
 
 CMD ["/calcom/scripts/start.sh"]
