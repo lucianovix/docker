@@ -229,18 +229,19 @@ Updating these variables is not required for evaluation, but is required for run
 
 ### Deploying on Render
 
-When deploying on Render, set the runtime environment variables so the
-application uses your actual domain. Add the following keys in
-`render.yaml` or through the Render dashboard:
+When deploying on Render, you must configure the runtime environment
+variables so the container uses your own domain names. Update
+`render.yaml` (or the Render dashboard) with values that match your
+deployment. For example:
 
 ```
-NEXT_PUBLIC_WEBAPP_URL=https://cal-web-cyvp.onrender.com
-NEXTAUTH_URL=https://cal-web-cyvp.onrender.com/api/auth
-NEXT_PUBLIC_API_V2_URL=https://cal-api-k6i4.onrender.com/api/v2
+NEXT_PUBLIC_WEBAPP_URL=https://<your-web-service>.onrender.com
+NEXTAUTH_URL=https://<your-web-service>.onrender.com/api/auth
+NEXT_PUBLIC_API_V2_URL=https://<your-api-service>.onrender.com/api/v2
 ```
 
-You must also set `NEXT_PUBLIC_LICENSE_CONSENT=agree` to accept the
-license agreement before the container can start.
+Remember to include `NEXT_PUBLIC_LICENSE_CONSENT=agree` so the container
+starts correctly.
 
 ## Git Submodules
 

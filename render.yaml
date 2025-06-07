@@ -30,6 +30,9 @@ services:
       - key: NEXT_PUBLIC_API_V2_URL
         value: https://cal-api-k6i4.onrender.com/api/v2
 
+      - key: NEXT_PUBLIC_LICENSE_CONSENT
+        value: agree
+
 databases:
   - name: cal-postgres
     plan: basic-1gb
