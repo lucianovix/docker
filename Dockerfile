@@ -52,7 +52,8 @@ WORKDIR /calcom
 ARG NEXT_PUBLIC_WEBAPP_URL=https://cal-web-cyvp.onrender.com
 ARG NEXT_PUBLIC_API_V2_URL=http://NEXT_PUBLIC_API_V2_URL_PLACEHOLDER
 
-ENV NODE_ENV=production
+ENV NODE_ENV=production \
+    CAL_START_CMD="yarn start:web"
 
 COPY calcom/package.json calcom/.yarnrc.yml calcom/turbo.json calcom/i18n.json ./
 COPY calcom/.yarn ./.yarn
@@ -68,7 +69,8 @@ COPY scripts scripts
 ENV NEXT_PUBLIC_WEBAPP_URL=$NEXT_PUBLIC_WEBAPP_URL \
     NEXT_PUBLIC_API_V2_URL=$NEXT_PUBLIC_API_V2_URL \
     BUILT_NEXT_PUBLIC_WEBAPP_URL=$NEXT_PUBLIC_WEBAPP_URL \
-    BUILT_NEXT_PUBLIC_API_V2_URL=$NEXT_PUBLIC_API_V2_URL
+    BUILT_NEXT_PUBLIC_API_V2_URL=$NEXT_PUBLIC_API_V2_URL \
+    CAL_START_CMD="yarn start:web"
 
 RUN scripts/replace-placeholder.sh http://NEXT_PUBLIC_WEBAPP_URL_PLACEHOLDER ${NEXT_PUBLIC_WEBAPP_URL}
 RUN scripts/replace-placeholder.sh http://NEXT_PUBLIC_API_V2_URL_PLACEHOLDER ${NEXT_PUBLIC_API_V2_URL}

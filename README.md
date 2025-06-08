@@ -94,13 +94,13 @@ If you are evaluating Cal.com or running with minimal to no modifications, this 
     To run Cal.com web app and Prisma Studio against a remote database, ensure that DATABASE_URL is configured for an available database and run:
 
     ```bash
-    docker compose up -d calcom studio
+    docker compose up -d cal-web cal-api studio
     ```
 
     To run only the Cal.com web app, ensure that DATABASE_URL is configured for an available database and run:
 
     ```bash
-    docker compose up -d calcom
+    docker compose up -d cal-web cal-api
     ```
 
     **Note: to run in attached mode for debugging, remove `-d` from your desired run command.**
@@ -168,7 +168,7 @@ If you are evaluating Cal.com or running with minimal to no modifications, this 
 6. Build Cal.com via docker compose (DOCKER_BUILDKIT=0 must be provided to allow a network bridge to be used at build time. This requirement will be removed in the future)
 
     ```bash
-    DOCKER_BUILDKIT=0 docker compose build calcom
+    DOCKER_BUILDKIT=0 docker compose build cal-web cal-api
     ```
 
 7. Start Cal.com via docker compose
@@ -182,13 +182,13 @@ If you are evaluating Cal.com or running with minimal to no modifications, this 
     To run Cal.com web app and Prisma Studio against a remote database, ensure that DATABASE_URL is configured for an available database and run:
 
     ```bash
-    docker compose up -d calcom studio
+    docker compose up -d cal-web cal-api studio
     ```
 
     To run only the Cal.com web app, ensure that DATABASE_URL is configured for an available database and run:
 
     ```bash
-    docker compose up -d calcom
+    docker compose up -d cal-web cal-api
     ```
 
     **Note: to run in attached mode for debugging, remove `-d` from your desired run command.**
@@ -211,6 +211,9 @@ These variables must also be provided at runtime
 | CALENDSO_ENCRYPTION_KEY | must match build variable | required | `secret` |
 | DATABASE_URL | database url with credentials - if using a connection pooler, this setting should point there | required | `postgresql://unicorn_user:magical_password@database:5432/calendso` |
 | DATABASE_DIRECT_URL | direct database url with credentials if using a connection pooler (e.g. PgBouncer, Prisma Accelerate, etc.) | optional | |
+| CAL_START_CMD | Command executed when the container starts. Defaults to `yarn start:web` but can be overridden (e.g. `yarn start:api`) for multi-service setups. | optional | `yarn start:web` |
+
+For deployments that separate the API and web components into distinct containers, override `CAL_START_CMD` to `yarn start:api` in the API service while leaving the web service to use the default `yarn start:web`.
 
 ### Build-time variables
 
