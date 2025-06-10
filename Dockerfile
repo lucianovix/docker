@@ -1,6 +1,6 @@
 FROM node:18 AS builder
 
-WORKDIR /calcom
+WORKDIR /app
 
 ARG NEXT_PUBLIC_LICENSE_CONSENT
 ARG NEXT_PUBLIC_WEBSITE_TERMS_URL
@@ -25,63 +25,57 @@ ENV NEXT_PUBLIC_WEBAPP_URL=http://NEXT_PUBLIC_WEBAPP_URL_PLACEHOLDER \
     NODE_OPTIONS=--max-old-space-size=${MAX_OLD_SPACE_SIZE} \
     BUILD_STANDALONE=true
 
-COPY calcom/package.json calcom/yarn.lock calcom/.yarnrc.yml calcom/playwright.config.ts calcom/turbo.json calcom/git-init.sh calcom/git-setup.sh calcom/i18n.json ./
-COPY calcom/.yarn ./.yarn
-COPY calcom/apps/web ./apps/web
-COPY calcom/apps/api/v2 ./apps/api/v2
-COPY calcom/packages ./packages
-COPY calcom/tests ./tests
+COPY package.json yarn.lock .yarnrc.yml playwright.config.ts turbo.json git-init.sh git-setup.sh i18n.json ./
+COPY .yarn ./.yarn
+COPY apps ./apps
+COPY packages ./packages
+COPY tests ./tests
 
 RUN yarn config set httpTimeout 1200000
 RUN npx turbo prune --scope=@calcom/web --scope=@calcom/trpc --docker
 RUN yarn install
 RUN yarn db-deploy
 RUN yarn --cwd packages/prisma seed-app-store
-# Build and make embed servable from web/public/embed folder
 RUN yarn workspace @calcom/trpc run build
 RUN yarn --cwd packages/embeds/embed-core workspace @calcom/embed-core run build
 RUN yarn --cwd apps/web workspace @calcom/web run build
-
-# RUN yarn plugin import workspace-tools && \
-#     yarn workspaces focus --all --production
 RUN rm -rf node_modules/.cache .yarn/cache apps/web/.next/cache
+
 
 FROM node:18 AS builder-two
 
-WORKDIR /calcom
+WORKDIR /app
 ARG NEXT_PUBLIC_WEBAPP_URL=https://cal-web-cyvp.onrender.com
-
 ENV NODE_ENV=production
 
-COPY calcom/package.json calcom/.yarnrc.yml calcom/turbo.json calcom/i18n.json ./
-COPY calcom/.yarn ./.yarn
-COPY --from=builder /calcom/yarn.lock ./yarn.lock
-COPY --from=builder /calcom/node_modules ./node_modules
-COPY --from=builder /calcom/packages ./packages
-COPY --from=builder /calcom/apps/web ./apps/web
-COPY --from=builder /calcom/packages/prisma/schema.prisma ./prisma/schema.prisma
+COPY package.json .yarnrc.yml turbo.json i18n.json ./
+COPY .yarn ./.yarn
+COPY --from=builder /app/yarn.lock ./yarn.lock
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/packages ./packages
+COPY --from=builder /app/apps/web ./apps/web
+COPY --from=builder /app/packages/prisma/schema.prisma ./prisma/schema.prisma
 COPY scripts scripts
 
-# Save value used during this build stage. If NEXT_PUBLIC_WEBAPP_URL and BUILT_NEXT_PUBLIC_WEBAPP_URL differ at
-# run-time, then start.sh will find/replace static values again.
 ENV NEXT_PUBLIC_WEBAPP_URL=$NEXT_PUBLIC_WEBAPP_URL \
     BUILT_NEXT_PUBLIC_WEBAPP_URL=$NEXT_PUBLIC_WEBAPP_URL
 
 RUN scripts/replace-placeholder.sh http://NEXT_PUBLIC_WEBAPP_URL_PLACEHOLDER ${NEXT_PUBLIC_WEBAPP_URL}
 
+
 FROM node:18 AS runner
 
-
-WORKDIR /calcom
-COPY --from=builder-two /calcom ./
+WORKDIR /app
+COPY --from=builder-two /app ./
 ARG NEXT_PUBLIC_WEBAPP_URL=https://cal-web-cyvp.onrender.com
-ENV NEXT_PUBLIC_WEBAPP_URL=$NEXT_PUBLIC_WEBAPP_URL \
-    BUILT_NEXT_PUBLIC_WEBAPP_URL=$NEXT_PUBLIC_WEBAPP_URL
 
-ENV NODE_ENV=production
+ENV NEXT_PUBLIC_WEBAPP_URL=$NEXT_PUBLIC_WEBAPP_URL \
+    BUILT_NEXT_PUBLIC_WEBAPP_URL=$NEXT_PUBLIC_WEBAPP_URL \
+    NODE_ENV=production
+
 EXPOSE 3000
 
 HEALTHCHECK --interval=30s --timeout=30s --retries=5 \
-    CMD wget --spider https://cal-web-cyvp.onrender.com || exit 1
+    CMD wget --spider http://localhost:3000 || exit 1
 
 CMD ["yarn", "--cwd", "apps/web", "start"]
