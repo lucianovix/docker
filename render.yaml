@@ -3,7 +3,8 @@ services:
     name: cal-web
     plan: standard
     repo: https://github.com/calcom/docker.git
-    dockerfilePath: ./Dockerfile.render
+    # Build from the main Dockerfile so environment variables are baked in
+    dockerfilePath: ./Dockerfile
     env: docker
     envVars:
 
@@ -20,6 +21,45 @@ services:
 
       - key: CRON_API_KEY
         value: 0cc0e6c35519bba620c9360cfe3e68d0
+
+      - key: NEXT_PUBLIC_WEBAPP_URL
+        value: https://cal-web-cyvp.onrender.com
+
+      - key: NEXTAUTH_URL
+        value: https://cal-web-cyvp.onrender.com/api/auth
+
+      - key: NEXT_PUBLIC_API_V2_URL
+        value: https://cal-api-k6i4.onrender.com/api/v2
+
+      - key: NEXT_PUBLIC_LICENSE_CONSENT
+        value: agree
+
+  - type: web
+    name: cal-api
+    plan: standard
+    repo: https://github.com/calcom/docker.git
+    dockerfilePath: ./Dockerfile
+    env: docker
+    startCommand: yarn start:api
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: cal-postgres
+          property: connectionString
+      - key: CALENDSO_ENCRYPTION_KEY
+        value: secret
+      - key: NEXTAUTH_SECRET
+        value: secret
+      - key: CRON_API_KEY
+        value: 0cc0e6c35519bba620c9360cfe3e68d0
+      - key: NEXT_PUBLIC_WEBAPP_URL
+        value: https://cal-web-cyvp.onrender.com
+      - key: NEXTAUTH_URL
+        value: https://cal-web-cyvp.onrender.com/api/auth
+      - key: NEXT_PUBLIC_API_V2_URL
+        value: https://cal-api-k6i4.onrender.com/api/v2
+      - key: NEXT_PUBLIC_LICENSE_CONSENT
+        value: agree
 
 databases:
   - name: cal-postgres

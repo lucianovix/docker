@@ -43,6 +43,8 @@ For Production, for the time being, please checkout the repository and build/pus
 
 Make sure you have `docker` & `docker compose` installed on the server / system. Both are installed by most docker utilities, including Docker Desktop and Rancher Desktop.
 
+If running `docker compose` results in `docker: command not found`, install Docker and ensure the `docker` binary is available in your `PATH`. Installation guides are provided at [docs.docker.com/get-docker](https://docs.docker.com/get-docker/).
+
 Note: `docker compose` without the hyphen is now the primary method of using docker-compose, per the Docker documentation.
 
 ## (Most users) Running Cal.com with Docker Compose
@@ -92,13 +94,13 @@ If you are evaluating Cal.com or running with minimal to no modifications, this 
     To run Cal.com web app and Prisma Studio against a remote database, ensure that DATABASE_URL is configured for an available database and run:
 
     ```bash
-    docker compose up -d calcom studio
+    docker compose up -d cal-web cal-api studio
     ```
 
     To run only the Cal.com web app, ensure that DATABASE_URL is configured for an available database and run:
 
     ```bash
-    docker compose up -d calcom
+    docker compose up -d cal-web cal-api
     ```
 
     **Note: to run in attached mode for debugging, remove `-d` from your desired run command.**
@@ -166,7 +168,7 @@ If you are evaluating Cal.com or running with minimal to no modifications, this 
 6. Build Cal.com via docker compose (DOCKER_BUILDKIT=0 must be provided to allow a network bridge to be used at build time. This requirement will be removed in the future)
 
     ```bash
-    DOCKER_BUILDKIT=0 docker compose build calcom
+    DOCKER_BUILDKIT=0 docker compose build cal-web cal-api
     ```
 
 7. Start Cal.com via docker compose
@@ -180,13 +182,13 @@ If you are evaluating Cal.com or running with minimal to no modifications, this 
     To run Cal.com web app and Prisma Studio against a remote database, ensure that DATABASE_URL is configured for an available database and run:
 
     ```bash
-    docker compose up -d calcom studio
+    docker compose up -d cal-web cal-api studio
     ```
 
     To run only the Cal.com web app, ensure that DATABASE_URL is configured for an available database and run:
 
     ```bash
-    docker compose up -d calcom
+    docker compose up -d cal-web cal-api
     ```
 
     **Note: to run in attached mode for debugging, remove `-d` from your desired run command.**
@@ -203,11 +205,15 @@ These variables must also be provided at runtime
 | --- | --- | --- | --- |
 | CALCOM_LICENSE_KEY | Enterprise License Key | optional |  |
 | NEXT_PUBLIC_WEBAPP_URL | Base URL of the site.  NOTE: if this value differs from the value used at build-time, there will be a slight delay during container start (to update the statically built files). | optional | `http://localhost:3000` |
+| NEXT_PUBLIC_API_V2_URL | Base URL for the API service. Like the webapp URL, this value can be replaced at runtime if it differs from the build-time value. | optional | `http://localhost:5555/api/v2` |
 | NEXTAUTH_URL | Location of the auth server. By default, this is the Cal.com docker instance itself. | optional | `{NEXT_PUBLIC_WEBAPP_URL}/api/auth` |
 | NEXTAUTH_SECRET | must match build variable | required | `secret` |
 | CALENDSO_ENCRYPTION_KEY | must match build variable | required | `secret` |
 | DATABASE_URL | database url with credentials - if using a connection pooler, this setting should point there | required | `postgresql://unicorn_user:magical_password@database:5432/calendso` |
 | DATABASE_DIRECT_URL | direct database url with credentials if using a connection pooler (e.g. PgBouncer, Prisma Accelerate, etc.) | optional | |
+| CAL_START_CMD | Command executed when the container starts. Defaults to `yarn start:web` but can be overridden (e.g. `yarn start:api`) for multi-service setups. | optional | `yarn start:web` |
+
+For deployments that separate the API and web components into distinct containers, override `CAL_START_CMD` to `yarn start:api` in the API service while leaving the web service to use the default `yarn start:web`.
 
 ### Build-time variables
 
@@ -218,6 +224,7 @@ Updating these variables is not required for evaluation, but is required for run
 | Variable | Description | Required | Default |
 | --- | --- | --- | --- |
 | NEXT_PUBLIC_WEBAPP_URL | Base URL injected into static files | optional | `http://localhost:3000` |
+| NEXT_PUBLIC_API_V2_URL | API endpoint injected into static files | optional | `http://localhost:5555/api/v2` |
 | NEXT_PUBLIC_LICENSE_CONSENT | license consent - true/false |  |  |
 | NEXT_PUBLIC_WEBSITE_TERMS_URL | custom URL for terms and conditions website | optional | `https://cal.com/terms` |
 | NEXT_PUBLIC_WEBSITE_PRIVACY_POLICY_URL | custom URL for privacy policy website | optional | `https://cal.com/privacy` |
@@ -226,6 +233,23 @@ Updating these variables is not required for evaluation, but is required for run
 | DATABASE_DIRECT_URL | direct database url with credentials if using a connection pooler (e.g. PgBouncer, Prisma Accelerate, etc.) | optional | |
 | NEXTAUTH_SECRET | Cookie encryption key | required | `secret` |
 | CALENDSO_ENCRYPTION_KEY | Authentication encryption key | required | `secret` |
+
+### Deploying on Render
+
+When deploying on Render, you must configure the runtime environment
+variables so the container uses your own domain names. Update
+`render.yaml` (or the Render dashboard) with values that match your
+deployment. Be sure the blueprint builds from `Dockerfile` so these
+values are embedded during the build. For example:
+
+```
+NEXT_PUBLIC_WEBAPP_URL=https://<your-web-service>.onrender.com
+NEXTAUTH_URL=https://<your-web-service>.onrender.com/api/auth
+NEXT_PUBLIC_API_V2_URL=https://<your-api-service>.onrender.com/api/v2
+```
+
+Remember to include `NEXT_PUBLIC_LICENSE_CONSENT=agree` so the container
+starts correctly.
 
 ## Git Submodules
 
