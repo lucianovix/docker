@@ -1,37 +1,40 @@
 ################  Build stage  ################
 FROM node:18 AS builder
-WORKDIR /app
 
-# 1. Kopieer je Cal.com-submodule in een submap
-COPY calcom ./calcom
-
-# 2. Ga in die map werken
+# 1. Zet werkdir en vergroot de heap
 WORKDIR /app/calcom
+ENV NODE_OPTIONS=--max-old-space-size=4096
 
-# 3. Build-time vars
+# 2. Build-time variabelen (fallbacks)
 ARG NEXT_PUBLIC_API_V2_URL=https://cal-api-k6i4.onrender.com/api/v2
 ARG NEXT_PUBLIC_WEBAPP_URL=https://cal-web-cyvp.onrender.com
 ENV NEXT_PUBLIC_API_V2_URL=$NEXT_PUBLIC_API_V2_URL
 ENV NEXT_PUBLIC_WEBAPP_URL=$NEXT_PUBLIC_WEBAPP_URL
 
-# 4. Install & build
+# 3. Kopieer de volledige Cal.com-bron (submodule)
+COPY calcom ./
+
+# 4. Installeer & bouw alleen de web-app
 RUN corepack enable && \
     yarn install --frozen-lockfile && \
     yarn --cwd apps/web build
 
 ################  Runtime stage  ################
 FROM node:18-slim AS runner
+
+# 1. Werkdir en productie-env
 WORKDIR /app
-
-# Kopieer alleen runtime-output
-COPY --from=builder /app/calcom/apps/web/.next      apps/web/.next
-COPY --from=builder /app/calcom/apps/web/package.json apps/web/package.json
-COPY --from=builder /app/calcom/node_modules        node_modules
-
 ENV NODE_ENV=production
+
+# 2. Copy alleen wat nodig is voor de web-runtime
+COPY --from=builder /app/apps/web/.next      apps/web/.next
+COPY --from=builder /app/apps/web/package.json apps/web/package.json
+COPY --from=builder /app/node_modules        node_modules
+
+# 3. Poort & healthcheck
 EXPOSE 3000
+HEALTHCHECK --interval=30s --timeout=10s --retries=5 \
+  CMD wget -qO- http://localhost:3000/api/health || exit 1
 
-# Health-endpoint zit in /api/health
-HEALTHCHECK CMD wget -qO- http://localhost:3000/api/health || exit 1
-
+# 4. Start de web-app
 CMD ["yarn","--cwd","apps/web","start"]
