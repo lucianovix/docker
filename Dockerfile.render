@@ -1,29 +1,40 @@
 ################  Build stage  ################
 FROM node:18 AS builder
 
-# 1. Werkmap + heap vergroten (2 GB is genoeg voor API)
-WORKDIR /app
-ENV NODE_OPTIONS="--max-old-space-size=2048"
-
-# 2. Kopieer de hele Cal.com-submodule
-COPY calcom ./calcom
-
-# 3. Installeer dependencies
+# 1. Zet werkdir en vergroot de heap
 WORKDIR /app/calcom
-RUN corepack enable && yarn install --frozen-lockfile
+ENV NODE_OPTIONS=--max-old-space-size=4096
+
+# 2. Build-time variabelen (fallbacks)
+ARG NEXT_PUBLIC_API_V2_URL=https://cal-api-k6i4.onrender.com/api/v2
+ARG NEXT_PUBLIC_WEBAPP_URL=https://cal-web-cyvp.onrender.com
+ENV NEXT_PUBLIC_API_V2_URL=$NEXT_PUBLIC_API_V2_URL
+ENV NEXT_PUBLIC_WEBAPP_URL=$NEXT_PUBLIC_WEBAPP_URL
+
+# 3. Kopieer de volledige Cal.com-bron (submodule)
+COPY calcom ./
+
+# 4. Installeer & bouw alleen de web-app
+RUN corepack enable && \
+    yarn install --frozen-lockfile && \
+    yarn --cwd apps/web build
 
 ################  Runtime stage  ################
 FROM node:18-slim AS runner
 
-# 1. Werkmap en productie-env
+# 1. Werkdir en productie-env
 WORKDIR /app
 ENV NODE_ENV=production
 
-# 2. Kopieer alléén wat de API nodig heeft
-COPY --from=builder /app/calcom/apps/api/v2   apps/api/v2
-COPY --from=builder /app/calcom/packages      packages
-COPY --from=builder /app/calcom/node_modules  node_modules
+# 2. Copy alleen wat nodig is voor de web-runtime
+COPY --from=builder /app/apps/web/.next      apps/web/.next
+COPY --from=builder /app/apps/web/package.json apps/web/package.json
+COPY --from=builder /app/node_modules        node_modules
 
-# 3. Exporteer poort en start API
+# 3. Poort & healthcheck
 EXPOSE 3000
-CMD ["yarn", "--cwd", "apps/api/v2", "start", "-p", "3000"]
+HEALTHCHECK --interval=30s --timeout=10s --retries=5 \
+  CMD wget -qO- http://localhost:3000/api/health || exit 1
+
+# 4. Start de web-app
+CMD ["yarn","--cwd","apps/web","start"]
