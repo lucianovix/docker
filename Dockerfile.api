@@ -1,0 +1,23 @@
+################  Build stage  ################
+FROM node:18 AS builder
+WORKDIR /app/calcom
+ENV NODE_OPTIONS=--max-old-space-size=2048   # 2 GB is genoeg voor enkel de API
+
+# Kopieer Cal.com-bron
+COPY calcom ./
+
+# Installeer deps
+RUN corepack enable && yarn install --frozen-lockfile
+
+################  Runtime stage  ################
+FROM node:18-slim AS runner
+WORKDIR /app
+
+# copy enkel wat nodig is voor api v2
+COPY --from=builder /app/calcom/apps/api/v2 apps/api/v2
+COPY --from=builder /app/calcom/packages       packages
+COPY --from=builder /app/calcom/node_modules   node_modules
+ENV NODE_ENV=production
+EXPOSE 3000
+
+CMD ["yarn","--cwd","apps/api/v2","start","-p","3000"]
