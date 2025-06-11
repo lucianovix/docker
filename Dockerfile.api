@@ -1,20 +1,22 @@
 ################  Build stage  ################
 FROM node:18 AS builder
 RUN echo "=== BUILDING CAL-API via Dockerfile.api ==="
-
 ENV NODE_OPTIONS="--max-old-space-size=2048"
+
 WORKDIR /app
 COPY calcom ./calcom
 WORKDIR /app/calcom
+
+# 1. Dependencies
 RUN corepack enable && yarn install --frozen-lockfile
+ENV YARN_IGNORE_SCRIPTS=true            # skip overbodige scripts
 
-# ------- Prisma-env voor build -------
+# 2. Alleen API-v2 builden
+RUN npx turbo run build --filter=apps/api/v2
+
+# 3. Prisma client
 ENV DATABASE_URL="file:./dev.db"
-ENV CALCOM_LICENSE_KEY="build-placeholder"
-
-# Compileer API
-RUN yarn --cwd apps/api/v2 prisma generate && \
-    yarn --cwd apps/api/v2 build
+RUN yarn --cwd apps/api/v2 prisma generate
 
 ################  Runtime stage  ################
 FROM node:18-slim AS runner
@@ -22,7 +24,6 @@ WORKDIR /app
 COPY --from=builder /app/calcom/apps/api/v2/dist   apps/api/v2/dist
 COPY --from=builder /app/calcom/node_modules       node_modules
 COPY --from=builder /app/calcom/packages           packages
-
 ENV NODE_ENV=production
 EXPOSE 3000
 CMD ["node", "apps/api/v2/dist/main.js"]
