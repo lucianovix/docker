@@ -25,7 +25,7 @@ services:
     name: cal-api
     plan: standard
     repo: https://github.com/lucianovix/docker.git
-    dockerfilePath: ./Dockerfile.render
+    dockerfilePath: ./Dockerfile.api
     env: docker
     buildFilter:
       paths: 
