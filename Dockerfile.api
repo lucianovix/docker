@@ -9,7 +9,7 @@ WORKDIR /app/calcom
 
 # 1. Dependencies
 RUN corepack enable && yarn install --frozen-lockfile
-ENV YARN_IGNORE_SCRIPTS=true  # skip overbodige scripts
+ENV YARN_IGNORE_SCRIPTS=true
 
 # 2. Alleen API-v2 builden
 RUN npx turbo run build --filter=apps/api/v2
