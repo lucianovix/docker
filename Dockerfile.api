@@ -1,7 +1,10 @@
 ################  Build stage  ################
 FROM node:18 AS builder
 
-# vergroot Node-heap naar 2 GB om OOM tijdens build te voorkomen
+# Deze regel verschijnt in de Render-logs → controle dat Dockerfile.api gebruikt wordt
+RUN echo "=== BUILDING CAL-API DOCKERFILE.API ==="
+
+# Vergroot Node-heap naar 2 GB om OOM tijdens build te voorkomen
 ENV NODE_OPTIONS="--max-old-space-size=2048"
 
 WORKDIR /app
