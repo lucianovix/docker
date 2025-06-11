@@ -1,34 +1,31 @@
-######################## 1️⃣  Build stage ########################
+################  Build stage  ################
 FROM node:18 AS builder
 WORKDIR /app
 
-# ----------- build-time ARGs (Render geeft ze mee) -----------
-ARG NEXT_PUBLIC_API_V2_URL
-ARG NEXT_PUBLIC_WEBAPP_URL
+# ----- Build-time ARG met fallback -----
+ARG NEXT_PUBLIC_API_V2_URL="https://cal-api-k6i4.onrender.com/api/v2"
 ENV NEXT_PUBLIC_API_V2_URL=$NEXT_PUBLIC_API_V2_URL
-ENV NEXT_PUBLIC_WEBAPP_URL=$NEXT_PUBLIC_WEBAPP_URL
 
-# ----------- copy volledige Cal.com-broncode -----------
+# ----- Cal.com-broncode in jouw repo -----
 COPY calcom .
 
-# ----------- install & build -----------
 RUN corepack enable && \
     yarn install --frozen-lockfile && \
     yarn --cwd apps/web build
 
-######################## 2️⃣  Runtime stage ########################
+################  Runtime stage  ################
 FROM node:18-slim AS runner
 WORKDIR /app
-ENV NODE_ENV=production
 
-# Copy alleen wat nodig is voor runtime
+# copy only runtime output
 COPY --from=builder /app/apps/web/.next apps/web/.next
 COPY --from=builder /app/apps/web/package.json apps/web/package.json
 COPY --from=builder /app/node_modules node_modules
 
-# Health-check endpoint zit in jouw broncode (/api/health)
+ENV NODE_ENV=production
 EXPOSE 3000
-HEALTHCHECK --interval=30s --timeout=10s --retries=5 \
-  CMD wget -qO- http://localhost:3000/api/health || exit 1
 
-CMD ["yarn", "--cwd", "apps/web", "start"]
+# eigen health-route zit in /api/health
+HEALTHCHECK CMD wget -qO- http://localhost:3000/api/health || exit 1
+
+CMD ["yarn","--cwd","apps/web","start"]
