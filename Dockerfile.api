@@ -1,10 +1,10 @@
 ################  Build stage  ################
 FROM node:18 AS builder
 
-# Deze regel verschijnt in de Render-logs → controle dat Dockerfile.api gebruikt wordt
-RUN echo "=== BUILDING CAL-API DOCKERFILE.API ==="
+# Logregel voor controle
+RUN echo "=== BUILDING CAL-API via Dockerfile.api ==="
 
-# Vergroot Node-heap naar 2 GB om OOM tijdens build te voorkomen
+# Vergroot Node-heap naar 2 GB (tegen OOM bij build)
 ENV NODE_OPTIONS="--max-old-space-size=2048"
 
 WORKDIR /app
@@ -12,21 +12,24 @@ WORKDIR /app
 # 1. Kopieer de volledige Cal.com-submodule
 COPY calcom ./calcom
 
-# 2. Installeer alleen de dependencies
+# 2. Installeer dependencies
 WORKDIR /app/calcom
 RUN corepack enable && yarn install --frozen-lockfile
+
+# 3. Compileer de API naar dist/
+RUN yarn --cwd apps/api/v2 build    # maakt apps/api/v2/dist/main.js
 
 ################  Runtime stage  ################
 FROM node:18-slim AS runner
 WORKDIR /app
 
-# 1. Kopieer alléén wat de API nodig heeft
-COPY --from=builder /app/calcom/apps/api/v2   apps/api/v2
-COPY --from=builder /app/calcom/packages      packages
-COPY --from=builder /app/calcom/node_modules  node_modules
+# 1. Kopieer alléén wat runtime nodig heeft
+COPY --from=builder /app/calcom/apps/api/v2/dist   apps/api/v2/dist
+COPY --from=builder /app/calcom/node_modules       node_modules
+COPY --from=builder /app/calcom/packages           packages   # prisma & config
 
 ENV NODE_ENV=production
 EXPOSE 3000
 
-# 2. Start de API-v2
-CMD ["yarn", "--cwd", "apps/api/v2", "start", "-p", "3000"]
+# 2. Start de gecompileerde Nest-API
+CMD ["node", "apps/api/v2/dist/main.js"]
