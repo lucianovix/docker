@@ -2,7 +2,7 @@ services:
   - type: web
     name: cal-web
     plan: standard
-    repo: https://github.com/lucianovix/docker.git     # ← eigen repo
+    repo: https://github.com/lucianovix/docker.git
     dockerfilePath: ./Dockerfile.render
     env: docker
     envVars:
@@ -10,21 +10,33 @@ services:
         fromDatabase:
           name: cal-postgres
           property: connectionString
-
       - key: NEXT_PUBLIC_API_V2_URL
         value: https://cal-api-k6i4.onrender.com/api/v2
-
       - key: NEXT_PUBLIC_WEBAPP_URL
         value: https://cal-web-cyvp.onrender.com
-
       - key: CALENDSO_ENCRYPTION_KEY
-        value: secret                # gebruik een lange random string
-
+        value: geheimewaarde
       - key: NEXTAUTH_SECRET
-        value: secret                # gebruik een lange random string
-
-      - key: CRON_API_KEY            # optioneel
+        value: geheimewaarde
+      - key: CRON_API_KEY
         value: 0cc0e6c35519bba620c9360cfe3e68d0
+
+  - type: web
+    name: cal-api
+    plan: standard
+    repo: https://github.com/lucianovix/docker.git
+    dockerfilePath: ./Dockerfile.render
+    env: docker
+    buildFilter:
+      paths: 
+        - api/
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: cal-postgres
+          property: connectionString
+      - key: CAL_START_CMD
+        value: yarn start:api
 
 databases:
   - name: cal-postgres
