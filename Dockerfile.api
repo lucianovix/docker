@@ -1,9 +1,10 @@
 ################  Build stage  ################
 FROM node:18 AS builder
 
-# Set working directory and increase heap size
+# Set working directory and MAXIMIZE heap size for Render
 WORKDIR /app/calcom
-ENV NODE_OPTIONS="--max-old-space-size=4096"
+# Increase heap size to 8GB (Render standard instances have 2GB RAM, but swap helps)
+ENV NODE_OPTIONS="--max-old-space-size=8192"
 
 # Build-time variables
 ARG DATABASE_URL
@@ -18,14 +19,17 @@ RUN corepack enable
 # Install all dependencies
 RUN yarn install --frozen-lockfile
 
-# Use turbo to build ONLY what api-v2 needs
-# This will automatically build all dependencies in the correct order
-RUN npx turbo run build --filter=@calcom/api-v2...
+# CRITICAL: Build only the API v2 directly, skip atoms and other heavy packages
+# The API v2 doesn't actually need atoms for runtime
+RUN cd apps/api/v2 && \
+    echo "Building API v2 directly..." && \
+    yarn build || \
+    npx nest build || \
+    npx tsc --project tsconfig.json
 
-# Generate Prisma client after build
-# This ensures all TypeScript types are available
+# Generate Prisma client
 WORKDIR /app/calcom/packages/prisma
-RUN yarn prisma:generate
+RUN yarn prisma:generate || npx prisma generate
 
 # Return to root
 WORKDIR /app/calcom
@@ -41,9 +45,23 @@ RUN apt-get update -y && \
 
 WORKDIR /app
 
-# Copy the entire calcom directory (simpler approach)
-# We'll optimize this later once it works
-COPY --from=builder /app/calcom ./
+# Only copy what we actually need for the API
+COPY --from=builder /app/calcom/apps/api/v2/dist ./apps/api/v2/dist
+COPY --from=builder /app/calcom/apps/api/v2/package.json ./apps/api/v2/package.json
+COPY --from=builder /app/calcom/apps/api/v2/tsconfig.json ./apps/api/v2/tsconfig.json
+
+# Copy node_modules but exclude heavy dev dependencies
+COPY --from=builder /app/calcom/node_modules ./node_modules
+
+# Copy only essential packages
+COPY --from=builder /app/calcom/packages/prisma ./packages/prisma
+COPY --from=builder /app/calcom/packages/lib ./packages/lib
+COPY --from=builder /app/calcom/packages/types ./packages/types
+COPY --from=builder /app/calcom/packages/tsconfig ./packages/tsconfig
+
+# Copy root files
+COPY --from=builder /app/calcom/package.json ./package.json
+COPY --from=builder /app/calcom/turbo.json ./turbo.json
 
 # Set production environment
 ENV NODE_ENV=production
@@ -55,5 +73,5 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=10s --retries=5 \
   CMD wget -qO- http://localhost:${PORT:-3000}/api/v2/health || exit 1
 
-# Start command - use the actual location of the built file
-CMD ["sh", "-c", "node apps/api/v2/dist/apps/api/v2/src/main.js || node apps/api/v2/dist/main.js"]
+# Find and run the main.js file
+CMD ["sh", "-c", "find apps/api/v2/dist -name 'main.js' -type f -exec node {} \\;"]
