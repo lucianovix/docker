@@ -18,11 +18,19 @@ RUN corepack enable
 # Install all dependencies
 RUN yarn install --frozen-lockfile
 
-# Generate Prisma client first (needed for build)
-RUN npx prisma generate --schema=packages/prisma/schema.prisma
+# Alternative approach: Build everything that the API needs
+# First, build all the dependencies
+RUN yarn workspace @calcom/prisma build
+RUN yarn workspace @calcom/lib build
+RUN yarn workspace @calcom/features build
+RUN yarn workspace @calcom/trpc build
 
-# Build the API v2 using yarn directly instead of turbo
-# The API v2 is a NestJS application that needs its own build command
+# Now generate Prisma client with the correct working directory
+WORKDIR /app/calcom/packages/prisma
+RUN yarn prisma:generate
+
+# Go back to root and build the API
+WORKDIR /app/calcom
 RUN yarn workspace @calcom/api-v2 build
 
 ################  Runtime stage  ################
@@ -30,7 +38,7 @@ FROM node:18-slim AS runner
 
 # Install required dependencies for Prisma
 RUN apt-get update -y && \
-    apt-get install -y openssl && \
+    apt-get install -y openssl ca-certificates && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -41,14 +49,19 @@ COPY --from=builder /app/calcom/apps/api/v2/dist ./apps/api/v2/dist
 COPY --from=builder /app/calcom/apps/api/v2/package.json ./apps/api/v2/package.json
 COPY --from=builder /app/calcom/apps/api/v2/tsconfig.json ./apps/api/v2/tsconfig.json
 
-# Copy node_modules and packages
+# Copy all node_modules (includes generated Prisma client)
 COPY --from=builder /app/calcom/node_modules ./node_modules
+
+# Copy all packages (needed for runtime dependencies)
 COPY --from=builder /app/calcom/packages ./packages
 
 # Copy root package.json and yarn files
 COPY --from=builder /app/calcom/package.json ./package.json
 COPY --from=builder /app/calcom/.yarnrc.yml ./.yarnrc.yml
 COPY --from=builder /app/calcom/.yarn ./.yarn
+
+# Copy Prisma schema for potential runtime needs
+COPY --from=builder /app/calcom/packages/prisma/schema.prisma ./packages/prisma/schema.prisma
 
 # Set production environment
 ENV NODE_ENV=production
