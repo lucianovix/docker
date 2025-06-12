@@ -1,28 +1,64 @@
 ################  Build stage  ################
 FROM node:18 AS builder
-RUN echo "=== BUILDING CAL-API via Dockerfile.api ==="
-ENV NODE_OPTIONS="--max-old-space-size=2048"
 
-WORKDIR /app
-COPY calcom ./calcom
+# Set working directory and increase heap size
 WORKDIR /app/calcom
+ENV NODE_OPTIONS="--max-old-space-size=4096"
 
-# 1. Dependencies
-RUN corepack enable && yarn install --frozen-lockfile
+# Build-time variables
+ARG DATABASE_URL
+ENV DATABASE_URL=$DATABASE_URL
 
-# 2. Alleen API-v2 builden
-RUN npx turbo run build --filter=apps/api/v2
+# Copy the entire Cal.com source (submodule)
+COPY calcom ./
 
-# 3. Prisma client
-ENV DATABASE_URL="file:./dev.db"
-RUN yarn --cwd apps/api/v2 prisma generate
+# Enable corepack for Yarn
+RUN corepack enable
+
+# Install all dependencies
+RUN yarn install --frozen-lockfile
+
+# Generate Prisma client first (needed for build)
+RUN npx prisma generate --schema=packages/prisma/schema.prisma
+
+# Build the API v2 using yarn directly instead of turbo
+# The API v2 is a NestJS application that needs its own build command
+RUN yarn workspace @calcom/api-v2 build
 
 ################  Runtime stage  ################
 FROM node:18-slim AS runner
+
+# Install required dependencies for Prisma
+RUN apt-get update -y && \
+    apt-get install -y openssl && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
-COPY --from=builder /app/calcom/apps/api/v2/dist   apps/api/v2/dist
-COPY --from=builder /app/calcom/node_modules       node_modules
-COPY --from=builder /app/calcom/packages           packages
+
+# Copy built application
+COPY --from=builder /app/calcom/apps/api/v2/dist ./apps/api/v2/dist
+COPY --from=builder /app/calcom/apps/api/v2/package.json ./apps/api/v2/package.json
+COPY --from=builder /app/calcom/apps/api/v2/tsconfig.json ./apps/api/v2/tsconfig.json
+
+# Copy node_modules and packages
+COPY --from=builder /app/calcom/node_modules ./node_modules
+COPY --from=builder /app/calcom/packages ./packages
+
+# Copy root package.json and yarn files
+COPY --from=builder /app/calcom/package.json ./package.json
+COPY --from=builder /app/calcom/.yarnrc.yml ./.yarnrc.yml
+COPY --from=builder /app/calcom/.yarn ./.yarn
+
+# Set production environment
 ENV NODE_ENV=production
+
+# Expose port (Render will override with $PORT)
 EXPOSE 3000
-CMD ["node", "apps/api/v2/dist/main.js"]
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --retries=5 \
+  CMD wget -qO- http://localhost:${PORT:-3000}/api/v2/health || exit 1
+
+# Start command - use $PORT from Render
+CMD ["sh", "-c", "node apps/api/v2/dist/main.js"]
