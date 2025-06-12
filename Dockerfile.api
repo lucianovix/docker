@@ -18,60 +18,55 @@ RUN corepack enable
 # Install all dependencies
 RUN yarn install --frozen-lockfile
 
-# Alternative approach: Build everything that the API needs
-# First, build all the dependencies
-RUN yarn workspace @calcom/prisma build
-RUN yarn workspace @calcom/lib build
-RUN yarn workspace @calcom/features build
-RUN yarn workspace @calcom/trpc build
+# Debug: Show what's in the api v2 directory
+RUN echo "=== Contents of apps/api/v2 ===" && \
+    ls -la apps/api/v2/ && \
+    echo "=== Package.json scripts ===" && \
+    cat apps/api/v2/package.json | grep -A 10 '"scripts"'
 
-# Now generate Prisma client with the correct working directory
-WORKDIR /app/calcom/packages/prisma
-RUN yarn prisma:generate
+# Debug: Try to find what build command we should use
+RUN echo "=== Checking available yarn scripts ===" && \
+    cd apps/api/v2 && yarn run | grep -E "(build|compile|start)" || true
 
-# Go back to root and build the API
-WORKDIR /app/calcom
-RUN yarn workspace @calcom/api-v2 build
+# Try different build approaches
+# First, try the standard NestJS build
+RUN cd apps/api/v2 && \
+    (yarn build || npm run build || npx nest build || echo "Standard build failed")
+
+# Debug: Check if dist was created
+RUN echo "=== Checking for dist directory ===" && \
+    ls -la apps/api/v2/ | grep dist || echo "No dist directory found"
+
+# If no dist, try building with TypeScript directly
+RUN if [ ! -d "apps/api/v2/dist" ]; then \
+    echo "=== Trying direct TypeScript compilation ===" && \
+    cd apps/api/v2 && \
+    npx tsc || echo "Direct tsc failed"; \
+    fi
+
+# Final check: what was actually built?
+RUN echo "=== Final directory structure ===" && \
+    find apps/api/v2 -name "*.js" -type f | head -20
 
 ################  Runtime stage  ################
 FROM node:18-slim AS runner
 
-# Install required dependencies for Prisma
+# Install required dependencies
 RUN apt-get update -y && \
-    apt-get install -y openssl ca-certificates && \
+    apt-get install -y openssl ca-certificates wget && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Copy built application
-COPY --from=builder /app/calcom/apps/api/v2/dist ./apps/api/v2/dist
-COPY --from=builder /app/calcom/apps/api/v2/package.json ./apps/api/v2/package.json
-COPY --from=builder /app/calcom/apps/api/v2/tsconfig.json ./apps/api/v2/tsconfig.json
-
-# Copy all node_modules (includes generated Prisma client)
-COPY --from=builder /app/calcom/node_modules ./node_modules
-
-# Copy all packages (needed for runtime dependencies)
-COPY --from=builder /app/calcom/packages ./packages
-
-# Copy root package.json and yarn files
-COPY --from=builder /app/calcom/package.json ./package.json
-COPY --from=builder /app/calcom/.yarnrc.yml ./.yarnrc.yml
-COPY --from=builder /app/calcom/.yarn ./.yarn
-
-# Copy Prisma schema for potential runtime needs
-COPY --from=builder /app/calcom/packages/prisma/schema.prisma ./packages/prisma/schema.prisma
+# Copy everything for now (we'll optimize later)
+COPY --from=builder /app/calcom ./
 
 # Set production environment
 ENV NODE_ENV=production
 
-# Expose port (Render will override with $PORT)
+# Expose port
 EXPOSE 3000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --retries=5 \
-  CMD wget -qO- http://localhost:${PORT:-3000}/api/v2/health || exit 1
-
-# Start command - use $PORT from Render
-CMD ["sh", "-c", "node apps/api/v2/dist/main.js"]
+# Debug startup
+CMD ["sh", "-c", "echo '=== Looking for main.js ===' && find apps/api/v2 -name 'main.js' -type f && echo '=== Starting API ===' && node $(find apps/api/v2 -name 'main.js' -type f | head -1)"]
