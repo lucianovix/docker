@@ -53,11 +53,8 @@ COPY --from=builder /app/calcom/apps/api/v2/tsconfig.json ./apps/api/v2/tsconfig
 # Copy node_modules but exclude heavy dev dependencies
 COPY --from=builder /app/calcom/node_modules ./node_modules
 
-# Copy only essential packages
-COPY --from=builder /app/calcom/packages/prisma ./packages/prisma
-COPY --from=builder /app/calcom/packages/lib ./packages/lib
-COPY --from=builder /app/calcom/packages/types ./packages/types
-COPY --from=builder /app/calcom/packages/tsconfig ./packages/tsconfig
+# Copy ALL packages to avoid missing dependencies
+COPY --from=builder /app/calcom/packages ./packages
 
 # Copy root files
 COPY --from=builder /app/calcom/package.json ./package.json
@@ -73,5 +70,5 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=10s --retries=5 \
   CMD wget -qO- http://localhost:${PORT:-3000}/api/v2/health || exit 1
 
-# Find and run the main.js file
-CMD ["sh", "-c", "find apps/api/v2/dist -name 'main.js' -type f -exec node {} \\;"]
+# Start command - use the exact path from the error logs
+CMD ["sh", "-c", "PORT=${PORT:-3000} node apps/api/v2/dist/apps/api/v2/src/main.js"]
