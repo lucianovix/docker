@@ -3,7 +3,6 @@ FROM node:18 AS builder
 
 # Set working directory and MAXIMIZE heap size for Render
 WORKDIR /app/calcom
-# Increase heap size to 8GB (Render standard instances have 2GB RAM, but swap helps)
 ENV NODE_OPTIONS="--max-old-space-size=8192"
 
 # Build-time variables
@@ -19,13 +18,18 @@ RUN corepack enable
 # Install all dependencies
 RUN yarn install --frozen-lockfile
 
-# CRITICAL: Build only the API v2 directly, skip atoms and other heavy packages
-# The API v2 doesn't actually need atoms for runtime
+# Build the API v2 and all its dependencies properly
+# First, let's see what dependencies exist
+RUN echo "=== Checking API v2 dependencies ===" && \
+    cd apps/api/v2 && \
+    cat package.json | grep -A 20 '"dependencies"' || true
+
+# Build using turbo with proper scope
+RUN npx turbo run build --scope=@calcom/api-v2 --include-dependencies --no-deps
+
+# If that fails, try direct build
 RUN cd apps/api/v2 && \
-    echo "Building API v2 directly..." && \
-    yarn build || \
-    npx nest build || \
-    npx tsc --project tsconfig.json
+    (yarn build || npx nest build || npx tsc --project tsconfig.json)
 
 # Generate Prisma client
 WORKDIR /app/calcom/packages/prisma
@@ -45,20 +49,9 @@ RUN apt-get update -y && \
 
 WORKDIR /app
 
-# Only copy what we actually need for the API
-COPY --from=builder /app/calcom/apps/api/v2/dist ./apps/api/v2/dist
-COPY --from=builder /app/calcom/apps/api/v2/package.json ./apps/api/v2/package.json
-COPY --from=builder /app/calcom/apps/api/v2/tsconfig.json ./apps/api/v2/tsconfig.json
-
-# Copy node_modules but exclude heavy dev dependencies
-COPY --from=builder /app/calcom/node_modules ./node_modules
-
-# Copy ALL packages to avoid missing dependencies
-COPY --from=builder /app/calcom/packages ./packages
-
-# Copy root files
-COPY --from=builder /app/calcom/package.json ./package.json
-COPY --from=builder /app/calcom/turbo.json ./turbo.json
+# Copy EVERYTHING from the builder stage
+# This ensures all dependencies are available
+COPY --from=builder /app/calcom ./
 
 # Set production environment
 ENV NODE_ENV=production
@@ -70,5 +63,5 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=10s --retries=5 \
   CMD wget -qO- http://localhost:${PORT:-3000}/api/v2/health || exit 1
 
-# Start command - use the exact path from the error logs
+# Start command with PORT environment variable
 CMD ["sh", "-c", "PORT=${PORT:-3000} node apps/api/v2/dist/apps/api/v2/src/main.js"]
