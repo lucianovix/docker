@@ -35,6 +35,9 @@ RUN cd apps/api/v2 && \
 WORKDIR /app/calcom/packages/prisma
 RUN yarn prisma:generate || npx prisma generate
 
+# Kopieer Swagger-documentatie
+COPY calcom/apps/api/v2/swagger/documentation.json ./apps/api/v2/dist/apps/api/v2/swagger/documentation.json
+
 # Return to root
 WORKDIR /app/calcom
 
