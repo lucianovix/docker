@@ -65,5 +65,12 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=10s --retries=5 \
   CMD wget -qO- http://localhost:${PORT:-3000}/api/v2/health || exit 1
 
-# Start command with PORT environment variable
-CMD ["sh", "-c", "PORT=${PORT:-3000} node apps/api/v2/dist/apps/api/v2/src/main.js"]
+# Maak een startup script
+RUN echo '#!/bin/sh' > /app/start.sh && \
+    echo 'mkdir -p ./swagger' >> /app/start.sh && \
+    echo 'echo "{}" > ./swagger/documentation.json' >> /app/start.sh && \
+    echo 'node apps/api/v2/dist/apps/api/v2/src/main.js' >> /app/start.sh && \
+    chmod +x /app/start.sh
+
+# Verander je CMD naar:
+CMD ["sh", "-c", "PORT=${PORT:-3000} /app/start.sh"]
